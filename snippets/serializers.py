@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from snippets.models import Snippet, LANGUAGE_CHOICES, STYLE_CHOICES
+from django.contrib.auth.models import User
 
 # THE LONG WAY OF MAKING A SERIALIZER
 
@@ -31,7 +32,20 @@ from snippets.models import Snippet, LANGUAGE_CHOICES, STYLE_CHOICES
 
 # THE MODEL WAY OF MAKING A SERIALIZER
 
-class SnippetSerializer(serializers.ModelSerializer):
+# class SnippetSerializer(serializers.ModelSerializer):
+class SnippetSerializer(serializers.HyperlinkedModelSerializer):
+    owner = serializers.ReadOnlyField(source='owner.username') #could have also used CharField(read_only=True)
+    highlight = serializers.HyperlinkedRelatedField(view_name='snippet-highlight', format='html', read_only=True)
     class Meta:
         model = Snippet
-        fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
+        fields = ('url', 'id', 'highlight', 'owner', 'title', 'code', 'linenos', 'language', 'style', 'owner')
+        # fields = ('id', 'title', 'code', 'linenos', 'language', 'style', 'owner')
+
+# class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.HyperlinkedModelSerializer):
+    # snippets = serializers.PrimaryKeyRelatedField(many=True, queryset=Snippet.objects.all())
+    snippets = serializers.HyperlinkedRelatedField(many=True, view_name='snippet-detail', read_only=True)
+    class Meta:
+        model = User
+        fields = ('url', 'id', 'username', 'snippets')
+        # fields = ('id', 'username', 'snippets')

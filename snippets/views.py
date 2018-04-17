@@ -1,13 +1,15 @@
 # from rest_framework import status
-# from rest_framework.decorators import api_view
-# from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 # from snippets.models import Snippet
 # from snippets.serializers import SnippetSerializer
 #THE ABOVE IS FOR FUNCTION-TYPE VIEWS
 from snippets.models import Snippet
-from snippets.serializers import SnippetSerializer
-from rest_framework import mixins
-from rest_framework import generics
+from snippets.serializers import SnippetSerializer, UserSerializer
+from rest_framework import mixins, generics, permissions, renderers
+from django.contrib.auth.models import User
+from snippets.permissions import IsOwnerOrReadOnly
+from rest_framework.reverse import reverse
 # from django.http import Http404
 # from rest_framework.views import APIView
 # from rest_framework.response import Response
@@ -20,11 +22,40 @@ from rest_framework import generics
 class SnippetList(generics.ListCreateAPIView):
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
+    #The create() method of the serializer will now be passed an additional 'owner' field, along with the validated data from the request
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Snippet.objects.all()
     serializer_class = SnippetSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly,)
+
+class UserList(generics.ListAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+class UserDetail(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+
+@api_view(['GET'])
+def api_root(request, format=None):
+    return Response({
+        # reverse returns fully-qualified URLs
+        'users': reverse('user-list', request=request, format=format),
+        'snippets': reverse('snippet-list', request=request, format=format)
+    })
+
+class SnippetHighlight(generics.GenericAPIView):
+    queryset = Snippet.objects.all()
+    renderer_classes = (renderers.StaticHTMLRenderer,)
+
+    def get(self, request, *args, **kwargs):
+        snippet = self.get_object()
+        return Response(snippet.highlighted)
 
 # THE BELOW IS GOOD FOR GENERICS AND MIXINS, BUT THE ABOVE IS EVEN MORE EXTREMELY CONCISE
 # class SnippetList(mixins.ListModeMixin, mixins.CreateModelMixin, generics.GenericAPIView): #Building our view using GenericAPIView, adding in ListModeMixin & CreateModelMixin
